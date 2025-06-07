@@ -24,7 +24,7 @@ jobs:
         pip install requests
 
     - name: Run email reset script
-      run: python send_reset_emails.py
+      run: python send_reset_email.py
       env:
         API_KEY: ${{ secrets.API_KEY }}
         API_SECRET: ${{ secrets.API_SECRET }}
