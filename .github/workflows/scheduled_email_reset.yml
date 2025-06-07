@@ -35,7 +35,7 @@ jobs:
         BASE_URL: ${{ secrets.BASE_URL }}
         API_KEY: ${{ secrets.API_KEY }}
         API_SECRET: ${{ secrets.API_SECRET }}
-      run: python send_reset_emails.py
+      run: python send_reset_email.py
 
     - name: Upload updated state artifact
       uses: actions/upload-artifact@v4
