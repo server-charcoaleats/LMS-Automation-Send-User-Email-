@@ -2,8 +2,8 @@ name: Scheduled Email Reset
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # every 30 minutes (UTC)
-  workflow_dispatch:        # manual trigger support
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:
 
 jobs:
   send_reset_emails:
@@ -11,33 +11,34 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Download previous state artifact (if any)
-      uses: actions/download-artifact@v4
-      with:
-        name: user_batch_state
-        path: ./  # download to root so script can find user_batch_state.json
-      continue-on-error: true  # if artifact doesn't exist, continue anyway
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
 
+    - name: Download previous user_batch_state.json (if exists)
+      uses: actions/download-artifact@v4
+      with:
+        name: user_batch_state
+        path: .
+      continue-on-error: true  # no artifact on first run
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
+        pip install --upgrade pip
         pip install requests
 
     - name: Run email reset script
+      run: python send_reset_emails.py
       env:
         BASE_URL: ${{ secrets.BASE_URL }}
         API_KEY: ${{ secrets.API_KEY }}
         API_SECRET: ${{ secrets.API_SECRET }}
-      run: python send_reset_email.py
 
-    - name: Upload updated state artifact
+    - name: Upload updated user_batch_state.json
+      if: always()  # always try to upload, even if script fails
       uses: actions/upload-artifact@v4
       with:
         name: user_batch_state
