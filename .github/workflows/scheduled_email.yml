@@ -3,7 +3,10 @@ name: Scheduled Email Reset
 on:
   schedule:
     - cron: '*/30 * * * *'  # Every 30 minutes
-  workflow_dispatch:
+  workflow_dispatch:         # Manual run
+
+permissions:
+  contents: write  # Required to push state updates
 
 jobs:
   send_reset_emails:
@@ -18,13 +21,6 @@ jobs:
       with:
         python-version: '3.9'
 
-    - name: Download previous user_batch_state.json (if exists)
-      uses: actions/download-artifact@v4
-      with:
-        name: user_batch_state
-        path: .
-      continue-on-error: true  # no artifact on first run
-
     - name: Install dependencies
       run: |
         pip install --upgrade pip
@@ -37,9 +33,10 @@ jobs:
         API_KEY: ${{ secrets.API_KEY }}
         API_SECRET: ${{ secrets.API_SECRET }}
 
-    - name: Upload updated user_batch_state.json
-      if: always()  # always try to upload, even if script fails
-      uses: actions/upload-artifact@v4
-      with:
-        name: user_batch_state
-        path: user_batch_state.json
+    - name: Commit updated state
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add .state/user_batch_state.json
+        git commit -m "Update state [bot]" || echo "No changes to commit"
+        git push
