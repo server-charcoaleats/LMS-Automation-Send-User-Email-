@@ -18,11 +18,12 @@ HEADERS = {
 
 EXCLUDE_USERS = {"Administrator", "Guest"}
 BATCH_SIZE = 3
-DELAY_BETWEEN_BATCHES = 15 * 60  # 15 minutes in seconds
 REQUEST_TIMEOUT = 25  # seconds
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds between retries
-STATE_FILE = "user_batch_state.json"
+
+STATE_DIR = ".state"
+STATE_FILE = os.path.join(STATE_DIR, "user_batch_state.json")
 
 # === Helpers to save/load state ===
 def load_state():
@@ -32,13 +33,13 @@ def load_state():
                 return json.load(f)
             except Exception:
                 pass
-    # Default state structure
     return {
         "last_index": 0,
-        "email_sent_log": {}  # email => last_sent_iso_str
+        "email_sent_log": {}
     }
 
 def save_state(state):
+    os.makedirs(STATE_DIR, exist_ok=True)
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
 
@@ -100,25 +101,18 @@ def process_users():
         print("No users fetched, exiting.")
         return
 
-    # Filter users: exclude admin/guest and those with password already set
     filtered_users = [
         u for u in users
         if u.get("email") and
         u.get("name") not in EXCLUDE_USERS and
-        not u.get("last_password_reset_date")  # no recent reset
+        not u.get("last_password_reset_date")
     ]
 
-    total_users = len(filtered_users)
-    if total_users == 0:
+    if not filtered_users:
         print("No eligible users found.")
         return
 
     now = datetime.utcnow()
-
-    # Split users into 2 categories:
-    # 1. Users who had email sent before but less than 72 hours ago (wait)
-    # 2. Users who had email sent before and 72+ hours passed (ready)
-    # 3. Users who never had email sent (new)
     wait_users = []
     ready_users = []
     new_users = []
@@ -129,21 +123,19 @@ def process_users():
         if last_sent_str:
             try:
                 last_sent = datetime.fromisoformat(last_sent_str)
+                if (now - last_sent) < timedelta(hours=72):
+                    wait_users.append(user)
+                else:
+                    ready_users.append(user)
             except Exception:
-                last_sent = None
-
-            if last_sent and (now - last_sent) < timedelta(hours=72):
-                wait_users.append(user)  # not ready yet
-            else:
-                ready_users.append(user)  # ready for next email
+                ready_users.append(user)
         else:
-            new_users.append(user)  # never sent before
+            new_users.append(user)
 
-    # Priority: send to ready_users first, then new_users
     candidates = ready_users + new_users
 
     if last_index >= len(candidates):
-        print("Reached end of candidates list, resetting index to 0.")
+        print("Reached end of candidate list. Resetting index to 0.")
         last_index = 0
 
     batch_users = candidates[last_index:last_index + BATCH_SIZE]
@@ -151,26 +143,24 @@ def process_users():
         print("No users to process in this batch.")
         return
 
-    print(f"Processing users {last_index + 1} to {last_index + len(batch_users)} out of {len(candidates)}.")
+    print(f"📦 Processing users {last_index + 1} to {last_index + len(batch_users)} out of {len(candidates)}")
 
     for user in batch_users:
         email = user["email"]
         print(f"✅ Sending reset link to: {email}")
-        success = send_reset_link(email)
-        if success:
+        if send_reset_link(email):
             email_sent_log[email] = now.isoformat()
         time.sleep(2)
 
-    # Save updated state
     new_index = last_index + BATCH_SIZE
     if new_index >= len(candidates):
-        new_index = 0  # wrap around
+        new_index = 0
 
     state["last_index"] = new_index
     state["email_sent_log"] = email_sent_log
     save_state(state)
 
-    print(f"Batch complete. Processed {len(batch_users)} users.")
+    print(f"✅ Batch complete. Processed {len(batch_users)} users.")
 
 if __name__ == "__main__":
     process_users()
