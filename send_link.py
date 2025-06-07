@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 from requests.exceptions import ReadTimeout, ConnectionError, HTTPError
 
 # === Configuration ===
-BASE_URL = "https://charcoaleatstraining.frappe.cloud"
-API_KEY = "d021e4abe9699fa"
-API_SECRET = "360bc4bc0e1f2d2"
+BASE_URL = os.getenv("BASE_URL")
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
 
 HEADERS = {
     "Authorization": f"token {API_KEY}:{API_SECRET}",
