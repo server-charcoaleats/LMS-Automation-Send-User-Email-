@@ -3,7 +3,6 @@ name: Scheduled Email Reset
 on:
   schedule:
     - cron: '*/30 * * * *'  # Runs every 30 minutes
-  workflow_dispatch:       # Allows manual triggering in GitHub UI
 
 jobs:
   send_reset_emails:
