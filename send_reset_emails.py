@@ -47,13 +47,10 @@ def save_state(state):
 def fetch_all_users():
     print("📥 Fetching all users...")
     url = f"{BASE_URL}/api/resource/User"
-    
-    # ✅ UPDATED FIELDS:
     params = {
-        "fields": '["name","email","enabled","reset_password_key","last_login"]',
+        "fields": '["name","email","enabled","last_password_reset_date","new_password"]',
         "limit_page_length": 1000
     }
-    
     try:
         res = requests.get(url, headers=HEADERS, params=params, timeout=REQUEST_TIMEOUT)
         res.raise_for_status()
@@ -104,23 +101,20 @@ def process_users():
         print("No users fetched, exiting.")
         return
 
-    # ✅ UPDATED FILTERING LOGIC:
-    # Only include users who are enabled, not excluded, and EITHER:
-    # - have a reset_password_key (have not set password), OR
-    # - never logged in (no password ever set)
+    now = datetime.utcnow()
+
+    # Filter users: must have email, not excluded, and no password set
     filtered_users = [
         u for u in users
         if u.get("email")
         and u.get("name") not in EXCLUDE_USERS
-        and u.get("enabled")
-        and (u.get("reset_password_key") or not u.get("last_login"))
+        and not u.get("new_password")  # <- user should not already have a password
     ]
 
     if not filtered_users:
         print("No eligible users found.")
         return
 
-    now = datetime.utcnow()
     wait_users = []
     ready_users = []
     new_users = []
@@ -167,11 +161,6 @@ def process_users():
     state["last_index"] = new_index
     state["email_sent_log"] = email_sent_log
     save_state(state)
-
-    print(f"✅ Batch complete. Processed {len(batch_users)} users.")
-
-if __name__ == "__main__":
-    process_users()
 
     print(f"✅ Batch complete. Processed {len(batch_users)} users.")
 
