@@ -125,7 +125,7 @@ def process_users():
         if last_sent_str:
             try:
                 last_sent = datetime.fromisoformat(last_sent_str)
-                if (now - last_sent) < timedelta(hours=72):
+                if (now - last_sent) < timedelta(hours=24):
                     wait_users.append(user)
                 else:
                     ready_users.append(user)
